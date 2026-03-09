@@ -133,8 +133,10 @@ export default function FitnessTracker() {
       checks: checks,
       createdAt: editingId ? history.find(h => h.id === editingId).createdAt : Date.now()
     };
+
     if (editingId) await setDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', editingId), payload);
     else await addDoc(collection(db, 'artifacts', 'yi-ching-fitness-v2', 'history'), payload);
+    
     setEditingId(null);
     setFormData({ date: getLocalDate(), weight: '', fat: '', calories: '', protein: '', diet: '', workout: '' });
     setChecks({});
@@ -142,7 +144,7 @@ export default function FitnessTracker() {
     setActiveTab('history');
   };
 
-  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic italic">LOADING...</div>;
+  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic">SYNCING...</div>;
 
   return (
     <main className="bg-slate-50 min-h-screen pb-10 font-sans text-slate-900">
@@ -173,10 +175,9 @@ export default function FitnessTracker() {
           ))}
         </div>
 
-        {/* Tab Content: Daily Check */}
+        {/* DAILY CHECK 分頁 */}
         {activeTab === 'check' && (
           <div className="animate-in fade-in duration-500">
-            {/* 營養建議備註 */}
             <div className="bg-blue-600 rounded-2xl p-4 shadow-lg mb-4 text-white">
               <h4 className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Nutrition Guidance</h4>
               <p className="text-sm font-bold">1,300 - 1,500 kcal / Protein: 100 - 115g</p>
@@ -195,7 +196,7 @@ export default function FitnessTracker() {
 
             <div className="bg-white rounded-3xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center border-b pb-3">
-                <h3 className="font-black text-slate-800 text-xs italic uppercase italic">Input Data</h3>
+                <h3 className="font-black text-slate-800 text-xs italic uppercase italic">Data Entry {editingId && <span className="text-orange-500 ml-2">(EDITING)</span>}</h3>
                 <input type="date" className="text-[11px] bg-slate-100 px-3 py-1.5 rounded-full font-bold outline-none"
                   value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
               </div>
@@ -217,7 +218,14 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* Tab Content: Plan (8週計畫表) */}
+        {/* TREND 分頁 */}
+        {activeTab === 'trend' && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm h-80 animate-in fade-in duration-300">
+            <canvas ref={chartRef}></canvas>
+          </div>
+        )}
+
+        {/* PLAN 分頁 */}
         {activeTab === 'plan' && (
           <div className="space-y-3 animate-in fade-in duration-300">
             {planData.map((d, i) => (
@@ -233,35 +241,33 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* Tab Content: History (包含 Protein 與 Icon) */}
+        {/* HISTORY 分頁 */}
         {activeTab === 'history' && (
           <div className="space-y-3 animate-in fade-in duration-300">
             {history.map((item: any) => (
               <div key={item.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-3 border-b border-slate-50 pb-2">
                   <div onClick={() => handleEdit(item)} className="cursor-pointer">
                     <div className="font-black text-slate-800 text-sm">{item.date} <span className="text-blue-500 ml-2">{item.score}%</span></div>
                     <div className="text-[9px] text-slate-400 font-black uppercase mt-1 flex gap-2 tracking-tighter">
                       <span>{item.weight}KG</span>
                       <span>{item.fat}CM</span>
                       <span>{item.calories}KCAL</span>
-                      <span className="text-blue-500">P:{item.protein}G</span>
+                      <span className="text-blue-600">P:{item.protein}G</span>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {checklistItems.map(icon => item.checks?.[icon.id] && <span key={icon.id} className="text-[10px]">{icon.emoji}</span>)}
+                    <button onClick={() => handleEdit(item)} className="text-blue-300 hover:text-blue-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                    <button onClick={() => { if(confirm('DELETE?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} className="text-red-200 hover:text-red-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
                   </div>
                 </div>
-                {item.diet && <div className="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-50 mb-2">{item.diet}</div>}
+                <div className="flex gap-1 mb-2 flex-wrap">
+                  {checklistItems.map(icon => item.checks?.[icon.id] && <span key={icon.id} className="text-xs">{icon.emoji}</span>)}
+                </div>
+                {item.diet && <div className="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-50 mb-2 leading-relaxed">{item.diet}</div>}
                 {item.workout && <div className="text-[10px] text-blue-400 font-bold italic ml-1">🎾 {item.workout}</div>}
               </div>
             ))}
-          </div>
-        )}
-
-        {activeTab === 'trend' && (
-          <div className="bg-white rounded-3xl p-5 shadow-sm h-80 animate-in fade-in duration-300">
-            <canvas ref={chartRef}></canvas>
           </div>
         )}
       </div>

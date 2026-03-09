@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import Chart from 'chart.js/auto';
 
-// --- Firebase 配置 (沿用妳的帳號) ---
+// --- Firebase 配置 (維持妳的設定) ---
 const firebaseConfig = {
   apiKey: "AIzaSyABcguF-gLkoJX2v1S7Q_bPNQaTQQFqfLM",
   authDomain: "myfitnesstracker-b7f16.firebaseapp.com",
@@ -23,11 +23,10 @@ export default function FitnessTracker() {
   const [activeTab, setActiveTab] = useState('check');
   const [history, setHistory] = useState<any[]>([]);
   const [dbLoading, setDbLoading] = useState(true);
-  const [currentScore, setCurrentScore] = useState(0);
-  const [checks, setChecks] = useState<any>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
   
-  // 表單狀態
+  // 原本程式碼的關鍵 State
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
+  const [currentScore, setCurrentScore] = useState(0);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     weight: '',
@@ -41,42 +40,42 @@ export default function FitnessTracker() {
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<Chart | null>(null);
 
+  // 原本的所有功能清單與加權
   const checklistItems = [
     { id: 'water', emoji: '💧', label: '飲水 2.5L', w: 15 },
-    { id: 'sugar', emoji: '🚫', label: '無糖', w: 15 },
-    { id: 'protein', emoji: '🍗', label: '蛋白質', w: 15 },
+    { id: 'sugar', emoji: '🚫', label: '無糖環境', w: 15 },
+    { id: 'protein', emoji: '🍗', label: '足量蛋白', w: 15 },
     { id: 'fiber', emoji: '🥗', label: '足量蔬菜', w: 15 },
     { id: 'steps', emoji: '👟', label: '萬步達成', w: 10 },
     { id: 'sleep', emoji: '🌙', label: '睡足 8H', w: 10 },
-    { id: 'bowel', emoji: '💩', label: '排便', w: 20, full: true }
+    { id: 'bowel', emoji: '💩', label: '每日排便', w: 20, full: true }
   ];
 
-  // 1. 監聽雲端數據 (路徑設為 yi-ching-fitness-v2，不影響舊資料)
+  // 1. 雲端監聽：確保路徑正確且即時更新
   useEffect(() => {
     const colRef = collection(db, 'artifacts', 'yi-ching-fitness-v2', 'history');
-    const unsub = onSnapshot(colRef, (snapshot) => {
+    const q = query(colRef, orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const sorted = data.sort((a: any, b: any) => b.createdAt - a.createdAt);
-      setHistory(sorted);
+      setHistory(data);
       setDbLoading(false);
     });
     return () => unsub();
   }, []);
 
-  // 2. 處理圖表
+  // 2. 圖表渲染邏輯
   useEffect(() => {
     if (activeTab === 'trend' && chartRef.current && history.length > 0) {
-      const sortedForChart = [...history].sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
-      
+      const sorted = [...history].sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
       if (chartInstance.current) chartInstance.current.destroy();
       
       chartInstance.current = new Chart(chartRef.current, {
         type: 'line',
         data: {
-          labels: sortedForChart.map(d => d.date),
+          labels: sorted.map(d => d.date),
           datasets: [
-            { label: '體重 (kg)', data: sortedForChart.map(d => d.weight), borderColor: '#3b82f6', yAxisID: 'y', tension: 0.3 },
-            { label: '熱量 (kcal)', data: sortedForChart.map(d => d.calories), borderColor: '#f97316', yAxisID: 'y1', tension: 0.4, fill: true, backgroundColor: 'rgba(249, 115, 22, 0.05)' }
+            { label: '體重 (kg)', data: sorted.map(d => d.weight), borderColor: '#3b82f6', tension: 0.3, yAxisID: 'y' },
+            { label: '熱量 (kcal)', data: sorted.map(d => d.calories), borderColor: '#f97316', tension: 0.4, yAxisID: 'y1', fill: true, backgroundColor: 'rgba(249, 115, 22, 0.05)' }
           ]
         },
         options: {
@@ -88,146 +87,162 @@ export default function FitnessTracker() {
     }
   }, [activeTab, history]);
 
-  const toggleCheck = (id: string, w: number) => {
+  // 3. 處理勾選與分數計算
+  const toggleCheck = (id: string, weight: number) => {
     const newChecks = { ...checks, [id]: !checks[id] };
     setChecks(newChecks);
     const score = checklistItems.reduce((acc, item) => newChecks[item.id] ? acc + item.w : acc, 0);
     setCurrentScore(score);
   };
 
+  // 4. 儲存至雲端
   const handleSave = async () => {
-    const colRef = collection(db, 'artifacts', 'yi-ching-fitness-v2', 'history');
+    if (!formData.weight) { alert("請輸入體重"); return; }
+    
     const dateObj = new Date(formData.date);
     const payload = {
       ...formData,
+      weight: parseFloat(formData.weight),
+      calories: parseInt(formData.calories) || 0,
+      protein: parseInt(formData.protein) || 0,
+      fat: parseFloat(formData.fat) || 0,
       date: `${dateObj.getMonth() + 1}/${dateObj.getDate()}`,
       fullDate: formData.date,
       score: currentScore,
       checks: checks,
-      createdAt: editingId ? history.find(h => h.id === editingId).createdAt : Date.now()
+      createdAt: Date.now()
     };
 
-    if (editingId) {
-      await setDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', editingId), payload);
-      setEditingId(null);
-    } else {
-      await addDoc(colRef, payload);
-    }
-
-    // 重置
-    setFormData({ ...formData, weight: '', fat: '', calories: '', protein: '', diet: '', workout: '' });
-    setChecks({});
-    setCurrentScore(0);
-    setActiveTab('history');
-  };
-
-  const deleteEntry = async (id: string) => {
-    if (confirm('確定要刪除嗎？')) {
-      await deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', id));
+    try {
+      await addDoc(collection(db, 'artifacts', 'yi-ching-fitness-v2', 'history'), payload);
+      // 重置表單
+      setFormData({ ...formData, weight: '', fat: '', calories: '', protein: '', diet: '', workout: '' });
+      setChecks({});
+      setCurrentScore(0);
+      setActiveTab('history');
+    } catch (e) {
+      console.error("Error adding document: ", e);
     }
   };
 
-  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-bold text-slate-400">LOADING DATA...</div>;
+  if (dbLoading) return <div className="flex items-center justify-center min-h-screen text-slate-400 font-bold">同步雲端資料中...</div>;
 
   return (
     <main className="bg-slate-50 min-h-screen pb-10 font-sans text-slate-900">
       <div className="max-w-md mx-auto p-4">
-        {/* Header */}
+        {/* --- Header --- */}
         <header className="bg-white rounded-3xl p-6 shadow-sm mb-6 text-center border-b-4 border-blue-100">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fitness Tracker</h1>
-          <p className="text-green-500 text-[10px] mt-1 font-bold italic uppercase tracking-widest">● 雲端同步中</p>
+          <h1 className="text-2xl font-bold text-slate-800">Fitness Tracker</h1>
+          <p className="text-green-500 text-[10px] mt-1 font-bold italic uppercase tracking-widest">● Cloud Synced</p>
           <div className="mt-4 flex justify-around">
             <div className="text-center">
               <span className="block text-2xl font-bold text-blue-600">{currentScore}%</span>
-              <span className="text-xs text-slate-400">今日完成率</span>
+              <span className="text-xs text-slate-400 font-bold uppercase">Daily Goal</span>
             </div>
             <div className="text-center">
               <span className="block text-2xl font-bold text-orange-500">{history.length}</span>
-              <span className="text-xs text-slate-400">累計紀錄</span>
+              <span className="text-xs text-slate-400 font-bold uppercase">Days Total</span>
             </div>
           </div>
         </header>
 
-        {/* Tabs */}
-        <div className="flex mb-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100 text-xs font-bold">
-          {['check', 'trend', 'plan', 'history'].map(tab => (
+        {/* --- Tabs --- */}
+        <div className="flex mb-4 bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100 text-[11px] font-bold">
+          {['check', 'trend', 'history'].map(tab => (
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 transition-all ${activeTab === tab ? 'text-blue-600 border-b-4 border-blue-500' : 'text-slate-400'}`}
+              className={`flex-1 py-3 transition-all ${activeTab === tab ? 'text-blue-600 border-b-4 border-blue-500 bg-blue-50/50' : 'text-slate-400 hover:bg-slate-50'}`}
             >
-              {tab === 'check' ? '每日清單' : tab === 'trend' ? '趨勢圖' : tab === 'plan' ? '計畫表' : '歷史'}
+              {tab === 'check' ? 'DAILY CHECK' : tab === 'trend' ? 'TREND' : 'HISTORY'}
             </button>
           ))}
         </div>
 
-        {/* Section: Checklist */}
+        {/* --- Tab Content: Checklist & Input --- */}
         {activeTab === 'check' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border-l-4 border-blue-500">
-               <h4 className="text-sm font-bold text-slate-800 mb-2">💡 營養攝取建議</h4>
-               <p className="text-[11px] text-slate-600">熱量：1,300 - 1,500 kcal | 蛋白質：100 - 115 g</p>
-            </div>
-
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Checklist Grid */}
             <div className="grid grid-cols-2 gap-2">
               {checklistItems.map(item => (
                 <div 
                   key={item.id}
                   onClick={() => toggleCheck(item.id, item.w)}
-                  className={`p-4 rounded-2xl bg-white border-2 flex flex-col items-center cursor-pointer transition-all ${item.full ? 'col-span-2' : ''} ${checks[item.id] ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`}
+                  className={`p-4 rounded-2xl bg-white border-2 flex flex-col items-center cursor-pointer transition-all active:scale-95 ${item.full ? 'col-span-2 py-3' : ''} ${checks[item.id] ? 'border-blue-500 bg-blue-50 shadow-inner' : 'border-transparent shadow-sm'}`}
                 >
                   <div className="text-xl mb-1">{item.emoji}</div>
-                  <p className="text-[10px] font-bold">{item.label}</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase">{item.label}</p>
                 </div>
               ))}
             </div>
 
+            {/* Form Section */}
             <div className="bg-white rounded-3xl p-5 shadow-sm space-y-4">
               <div className="flex justify-between items-center px-1">
-                <h3 className="font-bold text-slate-700">數據錄入</h3>
+                <h3 className="font-black text-slate-800 text-sm italic uppercase">Input Data</h3>
                 <input 
                   type="date" 
-                  className="text-xs bg-slate-100 px-2 py-1.5 rounded-lg outline-none"
+                  className="text-[11px] bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-600 outline-none"
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}
                 />
               </div>
+              
               <div className="grid grid-cols-2 gap-2">
-                <input className="bg-slate-50 p-2 rounded-xl text-sm border outline-none" placeholder="卡路里" type="number" value={formData.calories} onChange={(e) => setFormData({...formData, calories: e.target.value})}/>
-                <input className="bg-slate-50 p-2 rounded-xl text-sm border outline-none" placeholder="蛋白質" type="number" value={formData.protein} onChange={(e) => setFormData({...formData, protein: e.target.value})}/>
-                <input className="bg-slate-50 p-2 rounded-xl text-sm border outline-none" placeholder="體重" type="number" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})}/>
-                <input className="bg-slate-50 p-2 rounded-xl text-sm border outline-none" placeholder="腰圍" type="number" value={formData.fat} onChange={(e) => setFormData({...formData, fat: e.target.value})}/>
+                <input className="bg-slate-50 p-3 rounded-xl text-xs border-0 focus:ring-2 ring-blue-100 outline-none font-bold" placeholder="KCAL" type="number" value={formData.calories} onChange={(e) => setFormData({...formData, calories: e.target.value})} />
+                <input className="bg-slate-50 p-3 rounded-xl text-xs border-0 focus:ring-2 ring-blue-100 outline-none font-bold" placeholder="PROTEIN (G)" type="number" value={formData.protein} onChange={(e) => setFormData({...formData, protein: e.target.value})} />
+                <input className="bg-slate-50 p-3 rounded-xl text-xs border-0 focus:ring-2 ring-blue-100 outline-none font-bold" placeholder="WEIGHT (KG)" type="number" value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />
+                <input className="bg-slate-50 p-3 rounded-xl text-xs border-0 focus:ring-2 ring-blue-100 outline-none font-bold" placeholder="WAIST (CM)" type="number" value={formData.fat} onChange={(e) => setFormData({...formData, fat: e.target.value})} />
               </div>
-              <textarea className="w-full bg-slate-50 rounded-xl p-3 text-sm border outline-none" placeholder="飲食內容..." value={formData.diet} onChange={(e) => setFormData({...formData, diet: e.target.value})}/>
-              <button onClick={handleSave} className="w-full bg-slate-800 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">
-                {editingId ? '更新紀錄' : '儲存今日紀錄'}
+
+              <textarea 
+                className="w-full bg-slate-50 rounded-xl p-3 text-xs border-0 focus:ring-2 ring-blue-100 outline-none min-h-[60px]" 
+                placeholder="DIET LOG..." 
+                value={formData.diet}
+                onChange={(e) => setFormData({...formData, diet: e.target.value})}
+              />
+              
+              <button 
+                onClick={handleSave}
+                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform uppercase tracking-widest text-xs"
+              >
+                Save Daily Record
               </button>
             </div>
           </div>
         )}
 
-        {/* Section: Trend */}
+        {/* --- Tab Content: Trend --- */}
         {activeTab === 'trend' && (
-          <div className="bg-white rounded-3xl p-5 shadow-sm h-80">
+          <div className="bg-white rounded-3xl p-5 shadow-sm h-80 animate-in slide-in-from-right-4 duration-300">
             <canvas ref={chartRef}></canvas>
           </div>
         )}
 
-        {/* Section: History */}
+        {/* --- Tab Content: History --- */}
         {activeTab === 'history' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-in fade-in duration-300">
             {history.map((item: any) => (
-              <div key={item.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex justify-between items-start mb-2">
+              <div key={item.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <div className="font-bold text-slate-800">{item.date} <span className="text-blue-500">{item.score}%</span></div>
-                    <div className="text-[10px] text-slate-400">{item.weight}kg | {item.calories}kcal</div>
+                    <div className="font-black text-slate-800">{item.date} <span className="text-blue-500 ml-2">{item.score}%</span></div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                      {item.weight}kg · {item.calories}kcal · P:{item.protein}g
+                    </div>
                   </div>
-                  <button onClick={() => deleteEntry(item.id)} className="text-red-400 font-bold text-xs">✕ 刪除</button>
+                  <button 
+                    onClick={() => { if(confirm('DELETE RECORD?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} 
+                    className="text-red-300 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
                 </div>
-                <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg mt-2">
-                  🍽 {item.diet || '未紀錄'}
-                </div>
+                {item.diet && (
+                  <div className="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">
+                    {item.diet}
+                  </div>
+                )}
               </div>
             ))}
           </div>

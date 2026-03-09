@@ -66,6 +66,14 @@ export default function FitnessTracker() {
     { w: "W8", d: "4/21 - 4/27", s: "驗收", kg: "61.0 → 60.5", t: "持平鎖定。低鈉飲食，鎖定減脂成果。" }
   ];
 
+  const weeklyWorkout = [
+    ["週一", "[修復] 滾筒放鬆"],
+    ["週二", "[重訓 A] 背、腹部"],
+    ["週三", "[球類] 網球/匹克球"],
+    ["週四", "[重訓 B] 腿、胸"],
+    ["週六", "[強效] 重訓 + 網球"]
+  ];
+
   useEffect(() => {
     const colRef = collection(db, 'artifacts', 'yi-ching-fitness-v2', 'history');
     const q = query(colRef, orderBy('fullDate', 'desc'));
@@ -144,7 +152,7 @@ export default function FitnessTracker() {
     setActiveTab('history');
   };
 
-  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic">SYNCING...</div>;
+  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic uppercase">Syncing Cloud...</div>;
 
   return (
     <main className="bg-slate-50 min-h-screen pb-10 font-sans text-slate-900">
@@ -175,7 +183,7 @@ export default function FitnessTracker() {
           ))}
         </div>
 
-        {/* DAILY CHECK 分頁 */}
+        {/* DAILY CHECK */}
         {activeTab === 'check' && (
           <div className="animate-in fade-in duration-500">
             <div className="bg-blue-600 rounded-2xl p-4 shadow-lg mb-4 text-white">
@@ -218,30 +226,47 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* TREND 分頁 */}
+        {/* TREND */}
         {activeTab === 'trend' && (
           <div className="bg-white rounded-3xl p-5 shadow-sm h-80 animate-in fade-in duration-300">
             <canvas ref={chartRef}></canvas>
           </div>
         )}
 
-        {/* PLAN 分頁 */}
+        {/* PLAN (包含每週運動規劃) */}
         {activeTab === 'plan' && (
-          <div className="space-y-3 animate-in fade-in duration-300">
-            {planData.map((d, i) => (
-              <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-black text-slate-800 text-xs">{d.w} <span className="text-[10px] text-slate-400 font-bold ml-1 italic">{d.d}</span></span>
-                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black italic">{d.kg}</span>
-                </div>
-                <div className="text-[11px] font-black text-blue-500 uppercase mb-1">{d.s}期</div>
-                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{d.t}</p>
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+              <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-xs uppercase italic tracking-tighter">🎾 每週運動日程</h3>
+              <div className="space-y-2 text-[11px]">
+                {weeklyWorkout.map(([day, task]) => (
+                  <div key={day} className="flex justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="font-black text-blue-600 italic">{day}</span>
+                    <span className="text-slate-600 font-bold">{task}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+              <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-xs uppercase italic tracking-tighter">📅 8 週趨勢預覽</h3>
+              <div className="space-y-3">
+                {planData.map((d, i) => (
+                  <div key={i} className="border-b border-slate-50 pb-3 last:border-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-black text-slate-800 text-xs">{d.w} <span className="text-[10px] text-slate-400 font-bold ml-1 italic">{d.d}</span></span>
+                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-black italic">{d.kg}</span>
+                    </div>
+                    <div className="text-[11px] font-black text-blue-500 uppercase mb-1">{d.s}期</div>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{d.t}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* HISTORY 分頁 */}
+        {/* HISTORY */}
         {activeTab === 'history' && (
           <div className="space-y-3 animate-in fade-in duration-300">
             {history.map((item: any) => (
@@ -257,8 +282,8 @@ export default function FitnessTracker() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEdit(item)} className="text-blue-300 hover:text-blue-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
-                    <button onClick={() => { if(confirm('DELETE?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} className="text-red-200 hover:text-red-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    <button onClick={() => handleEdit(item)} className="text-blue-300 hover:text-blue-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                    <button onClick={() => { if(confirm('DELETE?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} className="text-red-200 hover:text-red-400 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
                   </div>
                 </div>
                 <div className="flex gap-1 mb-2 flex-wrap">

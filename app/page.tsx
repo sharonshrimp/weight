@@ -66,7 +66,6 @@ export default function FitnessTracker() {
     { w: "W8", d: "4/21 - 4/27", s: "驗收", kg: "61.0 → 60.5", t: "持平鎖定。低鈉飲食，鎖定減脂成果。" }
   ];
 
-  // 根據圖片更新的運動計畫
   const weeklyWorkout = [
     ["週一", "[修復] 散步 + 滾筒放鬆"],
     ["週二", "[重訓 A 背、腹部] + 20 分鐘快走"],
@@ -158,7 +157,7 @@ export default function FitnessTracker() {
   if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic uppercase">SYNCING CLOUD...</div>;
 
   return (
-    <main className="bg-slate-50 min-h-screen pb-10 font-sans text-slate-900">
+    <main className="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900">
       <div className="max-w-md mx-auto p-4">
         {/* Header */}
         <header className="bg-white rounded-3xl p-6 shadow-sm mb-6 text-center border-b-4 border-blue-100">
@@ -236,16 +235,16 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* PLAN (根據圖片更新運動日程) */}
+        {/* PLAN (修復週五週日被切掉的問題) */}
         {activeTab === 'plan' && (
-          <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="space-y-4 animate-in fade-in duration-300 pb-10">
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
               <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 text-xs uppercase italic tracking-tighter">🎾 每週運動日程</h3>
               <div className="space-y-2 text-[11px]">
                 {weeklyWorkout.map(([day, task]) => (
                   <div key={day} className="flex justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="font-black text-blue-600 italic">{day}</span>
-                    <span className="text-slate-600 font-bold">{task}</span>
+                    <span className="font-black text-blue-600 italic shrink-0 w-10">{day}</span>
+                    <span className="text-slate-600 font-bold text-right">{task}</span>
                   </div>
                 ))}
               </div>
@@ -281,7 +280,7 @@ export default function FitnessTracker() {
                       <span>{item.weight}KG</span>
                       <span>{item.fat}CM</span>
                       <span>{item.calories}KCAL</span>
-                      <span className="text-blue-600">P:{item.protein}G</span>
+                      <span className="text-blue-600 font-black">P:{item.protein}G</span>
                     </div>
                   </div>
                   <div className="flex gap-2">

@@ -235,7 +235,7 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* PLAN (修復週五週日被切掉的問題) */}
+        {/* PLAN */}
         {activeTab === 'plan' && (
           <div className="space-y-4 animate-in fade-in duration-300 pb-10">
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
@@ -268,31 +268,53 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* HISTORY */}
+        {/* HISTORY (視覺優化版本) */}
         {activeTab === 'history' && (
           <div className="space-y-3 animate-in fade-in duration-300">
             {history.map((item: any) => (
               <div key={item.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex justify-between items-start mb-3 border-b border-slate-50 pb-2">
-                  <div onClick={() => handleEdit(item)} className="cursor-pointer">
-                    <div className="font-black text-slate-800 text-sm">{item.date} <span className="text-blue-500 ml-2">{item.score}%</span></div>
-                    <div className="text-[9px] text-slate-400 font-black uppercase mt-1 flex gap-2 tracking-tighter">
-                      <span>{item.weight}KG</span>
-                      <span>{item.fat}CM</span>
-                      <span>{item.calories}KCAL</span>
-                      <span className="text-blue-600 font-black">P:{item.protein}G</span>
+                <div className="flex justify-between items-start mb-3 border-b border-slate-50 pb-3">
+                  <div onClick={() => handleEdit(item)} className="cursor-pointer flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="font-black text-slate-800 text-lg">{item.date}</span>
+                        <span className="font-black text-blue-500 text-lg">{item.score}%</span>
+                    </div>
+                    {/* 數值第一排：體重與腰圍 */}
+                    <div className="text-[11px] text-slate-400 font-bold uppercase flex gap-3 mb-1.5">
+                      <span>體重: <span className="text-slate-700">{item.weight}KG</span></span>
+                      <span>腰圍: <span className="text-slate-700">{item.fat}CM</span></span>
+                    </div>
+                    {/* 數值第二排：熱量與蛋白質 */}
+                    <div className="flex gap-2">
+                        <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded text-[10px] font-black italic tracking-tighter">🔥 {item.calories} KCAL</span>
+                        <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-black italic tracking-tighter">🍗 P: {item.protein}G</span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleEdit(item)} className="text-blue-300 hover:text-blue-500 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
-                    <button onClick={() => { if(confirm('DELETE?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} className="text-red-200 hover:text-red-400 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                  {/* 操作按鈕 */}
+                  <div className="flex gap-1">
+                    <button onClick={() => handleEdit(item)} className="p-2 text-blue-400 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                    <button onClick={() => { if(confirm('DELETE?')) deleteDoc(doc(db, 'artifacts', 'yi-ching-fitness-v2', 'history', item.id)) }} className="p-2 text-red-300 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
                   </div>
                 </div>
-                <div className="flex gap-1 mb-2 flex-wrap">
-                  {checklistItems.map(icon => item.checks?.[icon.id] && <span key={icon.id} className="text-xs">{icon.emoji}</span>)}
+
+                {/* 勾選圖標顯示 */}
+                <div className="flex gap-1.5 mb-3 flex-wrap">
+                  {checklistItems.map(icon => item.checks?.[icon.id] && <span key={icon.id} className="text-sm">{icon.emoji}</span>)}
                 </div>
-                {item.diet && <div className="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-50 mb-2 leading-relaxed">{item.diet}</div>}
-                {item.workout && <div className="text-[10px] text-blue-400 font-bold italic ml-1">🎾 {item.workout}</div>}
+
+                {/* 文字記錄 */}
+                {item.diet && (
+                    <div className="flex items-start gap-2 text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-50 mb-2 leading-relaxed">
+                        <span className="opacity-50">🍽️</span>
+                        <p>{item.diet}</p>
+                    </div>
+                )}
+                {item.workout && (
+                    <div className="flex items-center gap-2 text-[10px] text-blue-500 font-bold italic ml-1">
+                        <span>🎾</span>
+                        <span>{item.workout}</span>
+                    </div>
+                )}
               </div>
             ))}
           </div>

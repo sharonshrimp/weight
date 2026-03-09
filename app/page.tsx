@@ -66,12 +66,15 @@ export default function FitnessTracker() {
     { w: "W8", d: "4/21 - 4/27", s: "驗收", kg: "61.0 → 60.5", t: "持平鎖定。低鈉飲食，鎖定減脂成果。" }
   ];
 
+  // 根據圖片更新的運動計畫
   const weeklyWorkout = [
-    ["週一", "[修復] 滾筒放鬆"],
-    ["週二", "[重訓 A] 背、腹部"],
-    ["週三", "[球類] 網球/匹克球"],
-    ["週四", "[重訓 B] 腿、胸"],
-    ["週六", "[強效] 重訓 + 網球"]
+    ["週一", "[修復] 散步 + 滾筒放鬆"],
+    ["週二", "[重訓 A 背、腹部] + 20 分鐘快走"],
+    ["週三", "[網球/匹克球] 打球日"],
+    ["週四", "[重訓 B 腿、胸] + HIIT"],
+    ["週五", "[消耗日] 瑜珈 + 散步"],
+    ["週六", "[重訓 A 背、腹部] + 網球"],
+    ["週日", "[重訓 B 腿、胸]"]
   ];
 
   useEffect(() => {
@@ -152,7 +155,7 @@ export default function FitnessTracker() {
     setActiveTab('history');
   };
 
-  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic uppercase">Syncing Cloud...</div>;
+  if (dbLoading) return <div className="flex items-center justify-center min-h-screen font-black text-slate-300 italic uppercase">SYNCING CLOUD...</div>;
 
   return (
     <main className="bg-slate-50 min-h-screen pb-10 font-sans text-slate-900">
@@ -233,7 +236,7 @@ export default function FitnessTracker() {
           </div>
         )}
 
-        {/* PLAN (包含每週運動規劃) */}
+        {/* PLAN (根據圖片更新運動日程) */}
         {activeTab === 'plan' && (
           <div className="space-y-4 animate-in fade-in duration-300">
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
